@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vigília IA — Jornada Profética de 21 Dias</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕯️</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ═══ CANVAS DE ESTRELAS ═══ -->
+  <canvas id="starCanvas"></canvas>
+
+  <!-- ═══ TELA: LANDING ═══ -->
+  <div class="screen active" id="screen-landing">
+    <div class="landing-container">
+      <div class="landing-candle">🕯️</div>
+      <h1 class="landing-title">Vigília <span class="text-gold">IA</span></h1>
+      <p class="landing-subtitle">Sua jornada profética de 21 dias com orações personalizadas por inteligência artificial</p>
+      <div class="landing-badges">
+        <div class="badge">📖 Versículos Reais</div>
+        <div class="badge">🔥 Orações Proféticas</div>
+        <div class="badge">⚡ Decretos de Poder</div>
+      </div>
+      <button class="btn-gold btn-lg" onclick="navigateTo('quiz')">
+        Iniciar Minha Jornada →
+      </button>
+      <p class="landing-verse">"Clama a mim, e te responderei, e te revelarei coisas grandes e ocultas, que não sabes." — Jeremias 33:3</p>
+    </div>
+  </div>
+
+  <!-- ═══ TELA: QUIZ ═══ -->
+  <div class="screen" id="screen-quiz">
+    <div class="quiz-container">
+      <div class="quiz-progress">
+        <div class="quiz-progress-bar" id="quizProgressBar"></div>
+      </div>
+      <p class="quiz-step-label" id="quizStepLabel">Passo 1 de 6</p>
+      <div id="quizContent"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TELA: RESULTADO ═══ -->
+  <div class="screen" id="screen-resultado">
+    <div class="resultado-container" id="resultadoContent"></div>
+  </div>
+
+  <!-- ═══ TELA: DASHBOARD ═══ -->
+  <div class="screen" id="screen-dashboard">
+    <div class="dash-layout">
+
+      <!-- Header Mobile -->
+      <header class="dash-mobile-header">
+        <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
+        <span class="dash-mobile-title">🕯️ Vigília IA</span>
+      </header>
+
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+          <span class="sidebar-brand-icon">🕯️</span>
+          <span class="sidebar-brand-text">Vigília IA</span>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="nav-item active" data-section="jornada" onclick="showSection('jornada')">
+            <span class="nav-icon">📅</span> Jornada 21 Dias
+          </button>
+          <button class="nav-item" data-section="batalha" onclick="showSection('batalha')">
+            <span class="nav-icon">⚔️</span> Batalha Espiritual
+          </button>
+          <button class="nav-item" data-section="diario" onclick="showSection('diario')">
+            <span class="nav-icon">📓</span> Diário de Revelações
+          </button>
+          <button class="nav-item" data-section="pedidos" onclick="showSection('pedidos')">
+            <span class="nav-icon">🙏</span> Pedidos de Oração
+          </button>
+          <button class="nav-item" data-section="versiculo" onclick="showSection('versiculo')">
+            <span class="nav-icon">📖</span> Versículo do Dia
+          </button>
+          <button class="nav-item" data-section="progresso" onclick="showSection('progresso')">
+            <span class="nav-icon">📊</span> Meu Progresso
+          </button>
+          <button class="nav-item" data-section="agenda" onclick="showSection('agenda')">
+            <span class="nav-icon">📋</span> Agenda Espiritual
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <button class="nav-item nav-item-danger" onclick="resetarApp()">
+            🔄 Reiniciar Jornada
+          </button>
+        </div>
+      </aside>
+
+      <!-- Overlay mobile -->
+      <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+      <!-- Main Content -->
+      <main class="dash-main">
+        <!-- API Key Banner -->
+        <div class="api-banner" id="apiBanner" style="display:none;">
+          <p>🔑 Configure sua chave da API Claude para gerar orações</p>
+          <div class="api-banner-form">
+            <input type="password" id="apiKeyInput" placeholder="sk-ant-..." class="input-field">
+            <button class="btn-gold btn-sm" onclick="salvarApiKey()">Salvar</button>
+          </div>
+        </div>
+
+        <div class="section active" id="section-jornada"></div>
+        <div class="section" id="section-batalha"></div>
+        <div class="section" id="section-diario"></div>
+        <div class="section" id="section-pedidos"></div>
+        <div class="section" id="section-versiculo"></div>
+        <div class="section" id="section-progresso"></div>
+        <div class="section" id="section-agenda"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
