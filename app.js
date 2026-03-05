@@ -646,7 +646,7 @@ function completarVigilia(dia) {
 async function gerarOracaoDia(dia) {
   if (!state.apiKey) {
     document.getElementById('apiBanner').style.display = 'block';
-    alert('Configure sua chave da API Claude primeiro!');
+    alert('Configure sua chave da API Gemini primeiro!');
     return;
   }
   const semana = getSemana(dia);
@@ -713,7 +713,7 @@ function setBatalhaArea(area) {
 }
 
 async function gerarOracaoBatalha() {
-  if (!state.apiKey) { alert('Configure sua API key primeiro!'); return; }
+  if (!state.apiKey) { alert('Configure sua API key Gemini primeiro!'); return; }
   const situacao = document.getElementById('batalhaSituacao')?.value || '';
   const systemPrompt = 'Você é um guerreiro espiritual e intercessor ungido. Gere orações de batalha espiritual intensas em português brasileiro, com versículos reais. Tom: autoritário, cheio de poder, declarativo.';
   const userPrompt = `Gere uma oração de BATALHA ESPIRITUAL urgente para ${state.nome}.\nÁrea: ${batalhaArea || 'Geral'}\nSituação: ${situacao || 'Não especificada'}\nDenominação: ${state.denominacao}\n\nEstruture:\n📖 VERSÍCULO DE GUERRA:\n[versículo real de batalha]\n\n⚔️ ORAÇÃO DE BATALHA:\n[6-8 linhas intensas, com autoridade]\n\n🛡️ DECLARAÇÃO DE VITÓRIA:\n[3 declarações poderosas em primeira pessoa]`;
@@ -887,7 +887,7 @@ function renderVersiculo() {
 }
 
 async function gerarVersiculo() {
-  if (!state.apiKey) { alert('Configure sua API key primeiro!'); return; }
+  if (!state.apiKey) { alert('Configure sua API key Gemini primeiro!'); return; }
   const systemPrompt = 'Você é um pastor e teólogo com profundo conhecimento bíblico. Gere reflexões inspiradoras em português brasileiro usando versículos REAIS da Bíblia.';
   const userPrompt = `Gere um versículo do dia para ${state.nome}. Área de vida: ${state.area}. Nível: ${state.nivel}.\n\nEstruture:\n📖 VERSÍCULO:\n[versículo completo real com referência]\n\n💭 REFLEXÃO:\n[3-4 linhas de reflexão pessoal e aplicação]\n\n🙏 ORAÇÃO CURTA:\n[2-3 linhas de oração baseada no versículo]`;
 
@@ -1039,29 +1039,26 @@ function deletarAgenda(id) {
 // CLAUDE API — chamada direta do browser
 // ═══════════════════════════════════════════════════
 async function callClaude(apiKey, userPrompt, systemPrompt) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1200,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ parts: [{ text: userPrompt }] }],
+      generationConfig: { maxOutputTokens: 1200 },
     }),
   });
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error(errData?.error?.message || `Erro da API: ${response.status}`);
+    const msg = errData?.error?.message || `Erro da API: ${response.status}`;
+    throw new Error(msg);
   }
 
   const data = await response.json();
-  return data.content?.[0]?.text || 'Nenhuma resposta gerada.';
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Nenhuma resposta gerada.';
 }
 
 // ═══════════════════════════════════════════════════
