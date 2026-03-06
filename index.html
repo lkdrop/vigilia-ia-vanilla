@@ -12,6 +12,9 @@
   <!-- ═══ CANVAS DE ESTRELAS ═══ -->
   <canvas id="starCanvas"></canvas>
 
+  <!-- ═══ MILESTONE PARTICLES CANVAS ═══ -->
+  <canvas id="milestoneCanvas"></canvas>
+
   <!-- ═══ TELA: LANDING ═══ -->
   <div class="screen active" id="screen-landing">
     <div class="landing-container">
@@ -22,10 +25,15 @@
         <div class="badge">📖 Versículos Reais</div>
         <div class="badge">🔥 Orações Proféticas</div>
         <div class="badge">⚡ Decretos de Poder</div>
+        <div class="badge">🎵 Áudio Ambiente</div>
       </div>
       <button class="btn-gold btn-lg" onclick="navigateTo('quiz')">
         Iniciar Minha Jornada →
       </button>
+      <div class="landing-community" id="landingCommunity">
+        <span class="community-dot"></span>
+        <span id="communityCount"></span>
+      </div>
       <p class="landing-verse">"Clama a mim, e te responderei, e te revelarei coisas grandes e ocultas, que não sabes." — Jeremias 33:3</p>
     </div>
   </div>
@@ -86,6 +94,9 @@
           </button>
         </nav>
         <div class="sidebar-footer">
+          <button class="nav-item" onclick="toggleAudioPlayer()" style="color:var(--gold)">
+            🎵 Sons Ambientes
+          </button>
           <button class="nav-item nav-item-danger" onclick="resetarApp()">
             🔄 Reiniciar Jornada
           </button>
@@ -99,9 +110,9 @@
       <main class="dash-main">
         <!-- API Key Banner -->
         <div class="api-banner" id="apiBanner" style="display:none;">
-          <p>🔑 Configure sua chave da API Gemini para gerar orações</p>
+          <p>🔑 Configure sua chave da API Groq para gerar orações</p>
           <div class="api-banner-form">
-            <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="input-field">
+            <input type="password" id="apiKeyInput" placeholder="gsk_..." class="input-field">
             <button class="btn-gold btn-sm" onclick="salvarApiKey()">Salvar</button>
           </div>
         </div>
@@ -115,6 +126,36 @@
         <div class="section" id="section-agenda"></div>
       </main>
     </div>
+  </div>
+
+  <!-- ═══ IMMERSIVE PRAYER MODE ═══ -->
+  <div class="immersive-overlay" id="immersiveOverlay">
+    <button class="immersive-close" onclick="closeImmersive()">✕</button>
+    <div class="immersive-day-label" id="immersiveDayLabel"></div>
+    <div class="immersive-content" id="immersiveContent"></div>
+  </div>
+
+  <!-- ═══ MILESTONE CELEBRATION ═══ -->
+  <div class="milestone-overlay" id="milestoneOverlay">
+    <div class="milestone-icon" id="milestoneIcon"></div>
+    <h2 class="milestone-title" id="milestoneTitle"></h2>
+    <p class="milestone-text" id="milestoneText"></p>
+    <button class="btn-gold" onclick="closeMilestone()">Continuar Jornada</button>
+  </div>
+
+  <!-- ═══ AUDIO PLAYER ═══ -->
+  <div class="audio-player" id="audioPlayer">
+    <div class="audio-sounds">
+      <button class="audio-sound-btn" data-sound="rain" onclick="toggleSound('rain')">🌧️ Chuva</button>
+      <button class="audio-sound-btn" data-sound="fire" onclick="toggleSound('fire')">🔥 Fogueira</button>
+      <button class="audio-sound-btn" data-sound="forest" onclick="toggleSound('forest')">🌲 Floresta</button>
+      <button class="audio-sound-btn" data-sound="river" onclick="toggleSound('river')">🌊 Rio</button>
+    </div>
+    <div class="audio-volume">
+      <span style="font-size:0.8rem">🔊</span>
+      <input type="range" min="0" max="100" value="40" oninput="setAudioVolume(this.value)">
+    </div>
+    <button class="audio-close-btn" onclick="toggleAudioPlayer()">✕</button>
   </div>
 
   <script src="app.js"></script>

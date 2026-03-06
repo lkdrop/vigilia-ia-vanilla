@@ -1,36 +1,33 @@
 /* ═══════════════════════════════════════════════════
-   VIGÍLIA IA — APP.JS
-   Fase 1: Estrutura base, roteamento, canvas, estado
+   VIGÍLIA IA — APP.JS v2.0 (PREMIUM)
+   Audio, TTS, Milestones, XP, Immersive, Share
    ═══════════════════════════════════════════════════ */
 
 // ─── ESTADO GLOBAL ───
 const STORAGE_KEY = 'vigilia-ia';
 
 const defaultState = {
-  // Perfil (quiz)
   nome: '',
   denominacao: '',
   area: '',
   desafio: '',
   nivel: '',
   horario: '',
-  // Jornada
   diaAtual: 1,
   diaSelecionado: 1,
   streak: 0,
-  checkins: [],       // [1, 2, 3, ...]
-  ultimoCheckin: null, // 'YYYY-MM-DD'
-  // Orações geradas (cache)
-  oracoes: {},        // { 1: 'texto...', 2: 'texto...' }
-  // Diário
-  diario: [],         // [{ id, titulo, texto, tipo, data }]
-  // Pedidos
-  pedidos: [],        // [{ id, nome, descricao, area, data }]
-  // Agenda
-  agenda: [],         // [{ id, titulo, data, tipo, obs }]
-  // Config
+  bestStreak: 0,
+  checkins: [],
+  ultimoCheckin: null,
+  oracoes: {},
+  diario: [],
+  pedidos: [],
+  agenda: [],
   apiKey: '',
   quizCompleto: false,
+  xp: 0,
+  level: 1,
+  milestonesShown: [],
 };
 
 let state = {};
@@ -42,6 +39,7 @@ function loadState() {
   } catch {
     state = { ...defaultState };
   }
+  checkStreakReset();
 }
 
 function saveState() {
@@ -56,33 +54,42 @@ function resetarApp() {
   }
 }
 
+function checkStreakReset() {
+  if (!state.ultimoCheckin) return;
+  const last = new Date(state.ultimoCheckin);
+  const now = new Date(todayStr());
+  const diff = Math.floor((now - last) / (1000 * 60 * 60 * 24));
+  if (diff > 1) {
+    state.streak = 0;
+    saveState();
+  }
+}
+
+// ─── XP SYSTEM ───
+const XP_PER_LEVEL = 100;
+const XP_REWARDS = { vigilia: 30, batalha: 15, diario: 10, pedido: 5, versiculo: 10 };
+
+function addXP(amount) {
+  state.xp += amount;
+  while (state.xp >= state.level * XP_PER_LEVEL) {
+    state.xp -= state.level * XP_PER_LEVEL;
+    state.level++;
+  }
+  saveState();
+}
+
+function getXPProgress() {
+  const needed = state.level * XP_PER_LEVEL;
+  return Math.round((state.xp / needed) * 100);
+}
+
 // ─── DADOS DAS SEMANAS POR ÁREA ───
 const SEMANAS = {
-  'Finanças': [
-    'Arrependimento e limpeza financeira',
-    'Declarações de provisão',
-    'Decretos de colheita',
-  ],
-  'Família': [
-    'Cura e perdão',
-    'Restauração',
-    'Unidade e amor',
-  ],
-  'Saúde': [
-    'Quebra de enfermidade',
-    'Cura e força',
-    'Gratidão',
-  ],
-  'Direção e Propósito': [
-    'Escuta espiritual',
-    'Clareza do chamado',
-    'Ativação',
-  ],
-  'Libertação': [
-    'Identificação',
-    'Quebra de correntes',
-    'Consolidação',
-  ],
+  'Finanças': ['Arrependimento e limpeza financeira', 'Declarações de provisão', 'Decretos de colheita'],
+  'Família': ['Cura e perdão', 'Restauração', 'Unidade e amor'],
+  'Saúde': ['Quebra de enfermidade', 'Cura e força', 'Gratidão'],
+  'Direção e Propósito': ['Escuta espiritual', 'Clareza do chamado', 'Ativação'],
+  'Libertação': ['Identificação', 'Quebra de correntes', 'Consolidação'],
 };
 
 function getSemana(dia) {
@@ -97,7 +104,9 @@ function getTemaSemana(area, dia) {
   return temas ? temas[s - 1] : '';
 }
 
-// ─── NAVEGAÇÃO DE TELAS ───
+// ═══════════════════════════════════════════════════
+// NAVEGAÇÃO DE TELAS
+// ═══════════════════════════════════════════════════
 function navigateTo(screenName) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const target = document.getElementById('screen-' + screenName);
@@ -105,35 +114,23 @@ function navigateTo(screenName) {
     target.classList.add('active');
     window.scrollTo(0, 0);
   }
-
-  // Renderizar conteúdo da tela
   if (screenName === 'quiz') renderQuiz();
   if (screenName === 'resultado') renderResultado();
   if (screenName === 'dashboard') initDashboard();
 }
 
-// ─── NAVEGAÇÃO DO DASHBOARD (seções) ───
+// ─── NAVEGAÇÃO DO DASHBOARD ───
 let currentSection = 'jornada';
 
 function showSection(sectionName) {
   currentSection = sectionName;
-
-  // Atualiza nav
   document.querySelectorAll('.nav-item[data-section]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.section === sectionName);
   });
-
-  // Atualiza seções
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   const target = document.getElementById('section-' + sectionName);
-  if (target) {
-    target.classList.add('active');
-  }
-
-  // Renderizar conteúdo
+  if (target) target.classList.add('active');
   renderSection(sectionName);
-
-  // Fechar sidebar no mobile
   closeSidebar();
 }
 
@@ -151,17 +148,13 @@ function renderSection(name) {
 
 // ─── SIDEBAR MOBILE ───
 function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
-  sidebar.classList.toggle('open');
-  overlay.classList.toggle('open');
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
 }
 
 function closeSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
-  sidebar.classList.remove('open');
-  overlay.classList.remove('open');
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
 }
 
 // ─── API KEY ───
@@ -171,8 +164,7 @@ function salvarApiKey() {
   if (key) {
     state.apiKey = key;
     saveState();
-    const banner = document.getElementById('apiBanner');
-    banner.style.display = 'none';
+    document.getElementById('apiBanner').style.display = 'none';
     alert('✅ Chave salva com sucesso!');
   }
 }
@@ -185,6 +177,19 @@ function checkApiKey() {
     banner.style.display = 'none';
     document.getElementById('apiKeyInput').value = state.apiKey;
   }
+}
+
+// ═══════════════════════════════════════════════════
+// COMMUNITY COUNTER (social proof)
+// ═══════════════════════════════════════════════════
+function initCommunityCounter() {
+  const el = document.getElementById('communityCount');
+  if (!el) return;
+  const base = 2847;
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  const hourBonus = Math.floor(Math.sin(Date.now() / 3600000) * 30 + 30);
+  const count = base + (dayOfYear * 3) + hourBonus;
+  el.textContent = `${count.toLocaleString('pt-BR')} pessoas orando agora`;
 }
 
 // ═══════════════════════════════════════════════════
@@ -218,38 +223,399 @@ function initStarCanvas() {
 
   function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     for (const star of stars) {
       star.opacity += star.speed * star.dir;
-      if (star.opacity >= star.baseOpacity + 0.4) {
-        star.dir = -1;
-      }
+      if (star.opacity >= star.baseOpacity + 0.4) star.dir = -1;
       if (star.opacity <= star.baseOpacity - 0.15) {
         star.dir = 1;
         star.opacity = star.baseOpacity - 0.15;
       }
-
       ctx.beginPath();
       ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, star.opacity)})`;
       ctx.fill();
     }
-
     requestAnimationFrame(animate);
   }
 
-  window.addEventListener('resize', () => {
-    resize();
-    createStars();
-  });
-
+  window.addEventListener('resize', () => { resize(); createStars(); });
   resize();
   createStars();
   animate();
 }
 
 // ═══════════════════════════════════════════════════
-// QUIZ — 6 PERGUNTAS DE ONBOARDING
+// MILESTONE PARTICLES CANVAS
+// ═══════════════════════════════════════════════════
+let milestoneParticles = [];
+let milestoneAnimating = false;
+
+function initMilestoneCanvas() {
+  const canvas = document.getElementById('milestoneCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function animate() {
+    if (!milestoneAnimating && milestoneParticles.length === 0) {
+      requestAnimationFrame(animate);
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = milestoneParticles.length - 1; i >= 0; i--) {
+      const p = milestoneParticles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.12;
+      p.life -= 0.012;
+      if (p.life <= 0) {
+        milestoneParticles.splice(i, 1);
+        continue;
+      }
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (milestoneParticles.length === 0) milestoneAnimating = false;
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+function spawnMilestoneParticles() {
+  milestoneAnimating = true;
+  const colors = ['#d4af37', '#ffd700', '#ff6b35', '#7b2ff7', '#fff', '#e74c3c', '#2ecc71'];
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  for (let i = 0; i < 120; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 8 + 3;
+    milestoneParticles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 3,
+      size: Math.random() * 5 + 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 1,
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// MILESTONE CELEBRATION
+// ═══════════════════════════════════════════════════
+const MILESTONES = {
+  7:  { icon: '⭐', title: 'Primeira Semana Concluída!', text: 'Você completou 7 dias de vigília! A semente da fé está germinando.' },
+  14: { icon: '🏆', title: 'Duas Semanas de Fogo!', text: '14 dias de perseverança! Você está no meio da jornada — continue firme!' },
+  21: { icon: '👑', title: 'Jornada Completa!', text: '21 dias de vigília profética! Você é um guerreiro de oração!' },
+};
+
+function checkMilestone(dia) {
+  const m = MILESTONES[dia];
+  if (!m) return;
+  if (state.milestonesShown && state.milestonesShown.includes(dia)) return;
+  if (!state.milestonesShown) state.milestonesShown = [];
+  state.milestonesShown.push(dia);
+  saveState();
+  showMilestone(m.icon, m.title, m.text);
+}
+
+function showMilestone(icon, title, text) {
+  document.getElementById('milestoneIcon').textContent = icon;
+  document.getElementById('milestoneTitle').textContent = title;
+  document.getElementById('milestoneText').textContent = text;
+  document.getElementById('milestoneOverlay').classList.add('active');
+  spawnMilestoneParticles();
+}
+
+function closeMilestone() {
+  document.getElementById('milestoneOverlay').classList.remove('active');
+}
+
+// ═══════════════════════════════════════════════════
+// WEB AUDIO — AMBIENT SOUNDS
+// ═══════════════════════════════════════════════════
+let audioCtx = null;
+let activeSounds = {};
+let masterGain = null;
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.4;
+    masterGain.connect(audioCtx.destination);
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function createRainSound() {
+  const ctx = getAudioCtx();
+  const bufferSize = ctx.sampleRate * 2;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.3;
+    if (Math.random() < 0.001) {
+      const dropLen = Math.min(Math.floor(Math.random() * 200 + 50), bufferSize - i);
+      for (let j = 0; j < dropLen && i + j < bufferSize; j++) {
+        data[i + j] += Math.sin(j * 0.15) * Math.exp(-j * 0.02) * 0.2;
+      }
+    }
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+
+  const lpf = ctx.createBiquadFilter();
+  lpf.type = 'lowpass';
+  lpf.frequency.value = 3000;
+
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  gain.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 1.5);
+
+  source.connect(lpf);
+  lpf.connect(gain);
+  gain.connect(masterGain);
+  source.start();
+
+  return { source, gain, nodes: [lpf] };
+}
+
+function createFireSound() {
+  const ctx = getAudioCtx();
+  const bufferSize = ctx.sampleRate * 3;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < bufferSize; i++) {
+    const crackle = Math.random() < 0.003 ? (Math.random() - 0.5) * 0.6 : 0;
+    data[i] = (Math.random() * 2 - 1) * 0.15 + crackle;
+    data[i] *= 0.5 + 0.5 * Math.sin(i * 0.0003);
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+
+  const lpf = ctx.createBiquadFilter();
+  lpf.type = 'lowpass';
+  lpf.frequency.value = 800;
+
+  const hpf = ctx.createBiquadFilter();
+  hpf.type = 'highpass';
+  hpf.frequency.value = 60;
+
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 1.5);
+
+  source.connect(lpf);
+  lpf.connect(hpf);
+  hpf.connect(gain);
+  gain.connect(masterGain);
+  source.start();
+
+  return { source, gain, nodes: [lpf, hpf] };
+}
+
+function createForestSound() {
+  const ctx = getAudioCtx();
+  const bufferSize = ctx.sampleRate * 4;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.06;
+    if (Math.random() < 0.0005) {
+      const birdLen = Math.min(Math.floor(Math.random() * 1500 + 500), bufferSize - i);
+      const birdFreq = Math.random() * 0.3 + 0.2;
+      for (let j = 0; j < birdLen && i + j < bufferSize; j++) {
+        data[i + j] += Math.sin(j * birdFreq) * Math.exp(-j * 0.003) * 0.12;
+      }
+    }
+    data[i] += Math.sin(i * 0.001) * Math.sin(i * 0.0007) * 0.05;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+
+  const lpf = ctx.createBiquadFilter();
+  lpf.type = 'lowpass';
+  lpf.frequency.value = 5000;
+
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 2);
+
+  source.connect(lpf);
+  lpf.connect(gain);
+  gain.connect(masterGain);
+  source.start();
+
+  return { source, gain, nodes: [lpf] };
+}
+
+function createRiverSound() {
+  const ctx = getAudioCtx();
+  const bufferSize = ctx.sampleRate * 3;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < bufferSize; i++) {
+    const wave = Math.sin(i * 0.0005) * 0.3 + Math.sin(i * 0.0008) * 0.15;
+    data[i] = (Math.random() * 2 - 1) * 0.2 * (0.7 + 0.3 * Math.sin(i * 0.0002)) + wave * 0.1;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+
+  const lpf = ctx.createBiquadFilter();
+  lpf.type = 'lowpass';
+  lpf.frequency.value = 2500;
+
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  gain.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 1.5);
+
+  source.connect(lpf);
+  lpf.connect(gain);
+  gain.connect(masterGain);
+  source.start();
+
+  return { source, gain, nodes: [lpf] };
+}
+
+const SOUND_CREATORS = {
+  rain: createRainSound,
+  fire: createFireSound,
+  forest: createForestSound,
+  river: createRiverSound,
+};
+
+function toggleSound(name) {
+  if (activeSounds[name]) {
+    stopSound(name);
+  } else {
+    startSound(name);
+  }
+  updateAudioButtons();
+}
+
+function startSound(name) {
+  if (activeSounds[name]) return;
+  const creator = SOUND_CREATORS[name];
+  if (!creator) return;
+  activeSounds[name] = creator();
+}
+
+function stopSound(name) {
+  const s = activeSounds[name];
+  if (!s) return;
+  try {
+    s.gain.gain.linearRampToValueAtTime(0, getAudioCtx().currentTime + 0.5);
+    setTimeout(() => {
+      try { s.source.stop(); } catch {}
+    }, 600);
+  } catch {}
+  delete activeSounds[name];
+}
+
+function setAudioVolume(val) {
+  if (masterGain) {
+    masterGain.gain.value = val / 100;
+  }
+}
+
+function updateAudioButtons() {
+  document.querySelectorAll('.audio-sound-btn').forEach(btn => {
+    const sound = btn.dataset.sound;
+    btn.classList.toggle('active', !!activeSounds[sound]);
+  });
+}
+
+function toggleAudioPlayer() {
+  document.getElementById('audioPlayer').classList.toggle('active');
+}
+
+// ═══════════════════════════════════════════════════
+// TTS — TEXT TO SPEECH
+// ═══════════════════════════════════════════════════
+let ttsActive = false;
+
+function toggleTTS(text) {
+  if (ttsActive) {
+    speechSynthesis.cancel();
+    ttsActive = false;
+    return;
+  }
+  if (!text) return;
+  const clean = text.replace(/[📖🔥🙏⚡💭]/g, '').replace(/\n{2,}/g, '\n');
+  const utt = new SpeechSynthesisUtterance(clean);
+  utt.lang = 'pt-BR';
+  utt.rate = 0.9;
+  utt.pitch = 0.95;
+  const voices = speechSynthesis.getVoices();
+  const ptVoice = voices.find(v => v.lang.startsWith('pt'));
+  if (ptVoice) utt.voice = ptVoice;
+  utt.onend = () => { ttsActive = false; };
+  ttsActive = true;
+  speechSynthesis.speak(utt);
+}
+
+// ═══════════════════════════════════════════════════
+// IMMERSIVE PRAYER MODE
+// ═══════════════════════════════════════════════════
+function openImmersive(dia, text) {
+  const overlay = document.getElementById('immersiveOverlay');
+  document.getElementById('immersiveDayLabel').textContent = `DIA ${dia} DE 21`;
+  document.getElementById('immersiveContent').textContent = text;
+  overlay.classList.add('active');
+}
+
+function closeImmersive() {
+  document.getElementById('immersiveOverlay').classList.remove('active');
+  speechSynthesis.cancel();
+  ttsActive = false;
+}
+
+// ═══════════════════════════════════════════════════
+// SHARE API
+// ═══════════════════════════════════════════════════
+async function shareProgress() {
+  const text = `🕯️ Vigília IA — Dia ${Math.min(state.diaAtual, 21)} de 21\n🔥 Streak: ${state.streak} dias\n⭐ Nível ${state.level}\n✅ ${state.checkins.length}/21 vigílias concluídas\n\nFaça sua jornada profética também!`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Vigília IA', text });
+    } catch {}
+  } else {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Progresso copiado para a área de transferência!');
+    } catch {
+      alert(text);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// QUIZ — 6 PERGUNTAS
 // ═══════════════════════════════════════════════════
 let quizStep = 0;
 
@@ -335,7 +701,6 @@ function renderQuiz() {
   const step = QUIZ_STEPS[quizStep];
   const progress = ((quizStep + 1) / total) * 100;
 
-  // Atualizar barra de progresso
   document.getElementById('quizProgressBar').style.width = progress + '%';
   document.getElementById('quizStepLabel').textContent = `Passo ${quizStep + 1} de ${total}`;
 
@@ -347,26 +712,13 @@ function renderQuiz() {
       <h2 class="quiz-title">${step.titulo}</h2>
       <p class="quiz-subtitle">${step.subtitulo}</p>
       <div class="quiz-options">
-        <input
-          type="text"
-          id="quizInput"
-          class="input-field"
-          placeholder="${step.placeholder}"
-          value="${savedValue}"
-          autocomplete="off"
-          aria-label="${step.titulo}"
-        >
-        <button class="btn-gold" id="quizInputBtn" style="width:100%;margin-top:8px" onclick="quizSubmitInput()">
-          Continuar →
-        </button>
+        <input type="text" id="quizInput" class="input-field" placeholder="${step.placeholder}" value="${savedValue}" autocomplete="off" aria-label="${step.titulo}">
+        <button class="btn-gold" id="quizInputBtn" style="width:100%;margin-top:8px" onclick="quizSubmitInput()">Continuar →</button>
       </div>
     `;
     const input = document.getElementById('quizInput');
     input.focus();
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') quizSubmitInput();
-    });
-    // Habilitar/desabilitar botão
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') quizSubmitInput(); });
     const btn = document.getElementById('quizInputBtn');
     btn.disabled = !input.value.trim();
     btn.style.opacity = input.value.trim() ? '1' : '0.4';
@@ -381,10 +733,7 @@ function renderQuiz() {
       opcoesHTML += `
         <button class="quiz-option" onclick="quizSelectOption('${step.id}', '${op.value.replace(/'/g, "\\'")}')">
           <span class="quiz-option-emoji">${op.emoji}</span>
-          <span class="quiz-option-text">
-            ${op.label}
-            ${subLine}
-          </span>
+          <span class="quiz-option-text">${op.label}${subLine}</span>
         </button>
       `;
     }
@@ -401,9 +750,7 @@ function quizSubmitInput() {
   const input = document.getElementById('quizInput');
   const val = input.value.trim();
   if (!val) return;
-
-  const step = QUIZ_STEPS[quizStep];
-  state[step.id] = val;
+  state[QUIZ_STEPS[quizStep].id] = val;
   saveState();
   quizAdvance();
 }
@@ -419,7 +766,6 @@ function quizAdvance() {
     quizStep++;
     renderQuiz();
   } else {
-    // Quiz completo
     state.quizCompleto = true;
     saveState();
     navigateTo('resultado');
@@ -427,28 +773,18 @@ function quizAdvance() {
 }
 
 function quizBack() {
-  if (quizStep > 0) {
-    quizStep--;
-    renderQuiz();
-  }
+  if (quizStep > 0) { quizStep--; renderQuiz(); }
 }
 
 // ═══════════════════════════════════════════════════
-// RESULTADO PÓS-QUIZ — Resumo + Timeline
+// RESULTADO PÓS-QUIZ
 // ═══════════════════════════════════════════════════
 function renderResultado() {
   const el = document.getElementById('resultadoContent');
   const { nome, denominacao, area, desafio, nivel, horario } = state;
-
-  const areaEmojis = {
-    'Finanças': '💰', 'Família': '❤️', 'Saúde': '🏥',
-    'Direção e Propósito': '🎯', 'Libertação': '⚡',
-  };
+  const areaEmojis = { 'Finanças': '💰', 'Família': '❤️', 'Saúde': '🏥', 'Direção e Propósito': '🎯', 'Libertação': '⚡' };
   const emoji = areaEmojis[area] || '🔥';
   const semanas = SEMANAS[area] || SEMANAS['Finanças'];
-
-  // Extrair só o horário curto para exibir
-  const horarioCurto = horario ? horario.split('—')[0].replace(/[^\d:h]/g, '').trim() : '';
 
   el.innerHTML = `
     <div class="resultado-header" style="animation: fadeUp 0.5s ease-out">
@@ -456,30 +792,13 @@ function renderResultado() {
       <h1><span class="text-gold">${nome}</span>, sua jornada está pronta!</h1>
       <p class="text-muted">${emoji} Área: ${area}</p>
     </div>
-
     <div class="perfil-grid" style="animation: fadeUp 0.6s ease-out">
-      <div class="perfil-card">
-        <div class="label">Denominação</div>
-        <div class="value">${denominacao}</div>
-      </div>
-      <div class="perfil-card">
-        <div class="label">Desafio</div>
-        <div class="value" style="font-size:0.85rem">${desafio}</div>
-      </div>
-      <div class="perfil-card">
-        <div class="label">Nível</div>
-        <div class="value">${nivel}</div>
-      </div>
-      <div class="perfil-card">
-        <div class="label">Horário</div>
-        <div class="value" style="font-size:0.85rem">${horario.split('—')[1] || horario}</div>
-      </div>
+      <div class="perfil-card"><div class="label">Denominação</div><div class="value">${denominacao}</div></div>
+      <div class="perfil-card"><div class="label">Desafio</div><div class="value" style="font-size:0.85rem">${desafio}</div></div>
+      <div class="perfil-card"><div class="label">Nível</div><div class="value">${nivel}</div></div>
+      <div class="perfil-card"><div class="label">Horário</div><div class="value" style="font-size:0.85rem">${horario.split('—')[1] || horario}</div></div>
     </div>
-
-    <h3 class="text-center" style="margin-bottom:20px; animation: fadeUp 0.7s ease-out">
-      Sua Jornada de 21 Dias
-    </h3>
-
+    <h3 class="text-center" style="margin-bottom:20px; animation: fadeUp 0.7s ease-out">Sua Jornada de 21 Dias</h3>
     <div class="semanas-timeline" style="animation: fadeUp 0.8s ease-out">
       ${semanas.map((tema, i) => `
         <div class="semana-item">
@@ -491,19 +810,11 @@ function renderResultado() {
         </div>
       `).join('')}
     </div>
-
     <div class="card-gold text-center" style="margin-bottom:32px; animation: fadeUp 0.9s ease-out">
-      <p class="text-gold" style="font-weight:bold; font-size:1.05rem; margin-bottom:4px">
-        21 dias de transformação espiritual
-      </p>
-      <p class="text-muted" style="font-size:0.9rem">
-        Cada dia você receberá uma oração profética personalizada com versículos,
-        palavra profética e decretos de poder.
-      </p>
+      <p class="text-gold" style="font-weight:bold; font-size:1.05rem; margin-bottom:4px">21 dias de transformação espiritual</p>
+      <p class="text-muted" style="font-size:0.9rem">Cada dia você receberá uma oração profética personalizada com versículos, palavra profética e decretos de poder.</p>
     </div>
-
-    <button class="btn-gold btn-lg golden-pulse" style="width:100%; animation: fadeUp 1s ease-out"
-      onclick="navigateTo('dashboard')">
+    <button class="btn-gold btn-lg golden-pulse" style="width:100%; animation: fadeUp 1s ease-out" onclick="navigateTo('dashboard')">
       Começar minha Jornada Agora 🔥
     </button>
   `;
@@ -518,7 +829,7 @@ function initDashboard() {
 }
 
 // ═══════════════════════════════════════════════════
-// 3.1 — JORNADA 21 DIAS (seção principal)
+// JORNADA 21 DIAS
 // ═══════════════════════════════════════════════════
 let oracaoAtual = '';
 let loadingOracao = false;
@@ -532,6 +843,7 @@ function renderJornada() {
   const tema = getTemaSemana(area, diaVer);
   const pct = Math.round((checkins.length / 21) * 100);
   const diaJaConcluido = checkins.includes(diaVer);
+  const xpPct = getXPProgress();
 
   if (jornadaCompleta) {
     el.innerHTML = `
@@ -542,6 +854,8 @@ function renderJornada() {
           Parabéns, ${nome}! Você completou os 21 dias de jornada profética.<br>
           Que as bênçãos derramadas continuem em sua vida!
         </p>
+        <button class="share-btn" onclick="shareProgress()" style="margin-bottom:16px">📤 Compartilhar</button>
+        <br>
         <button class="btn-outline" onclick="resetarApp()">Iniciar Nova Jornada</button>
       </div>`;
     return;
@@ -552,10 +866,14 @@ function renderJornada() {
   for (let d = 1; d <= 21; d++) {
     const concluido = checkins.includes(d);
     const selecionado = d === diaVer;
-    let cls = 'dia-cell pendente';
-    if (concluido) cls = 'dia-cell concluido';
+    const locked = d > diaAtual && !concluido;
+    let cls = 'dia-cell';
+    if (concluido) cls += ' concluido';
+    else if (locked) cls += ' locked';
+    else cls += ' pendente';
     if (selecionado) cls += ' selecionado';
-    diasHTML += `<div class="${cls}" onclick="selecionarDia(${d})">${concluido ? '✓' : d}</div>`;
+    const onclick = locked ? '' : `onclick="selecionarDia(${d})"`;
+    diasHTML += `<div class="${cls}" ${onclick}>${concluido ? '✓' : d}</div>`;
   }
 
   // Oração cacheada?
@@ -567,13 +885,25 @@ function renderJornada() {
         <h2>Olá, <span class="text-gold">${nome}</span></h2>
         <p>${horario || ''} · ${area}</p>
       </div>
-      <div class="streak-badge">🔥 ${streak} ${streak === 1 ? 'dia' : 'dias'}</div>
+      <div class="streak-badge">
+        <span class="streak-fire">🔥</span> ${streak} ${streak === 1 ? 'dia' : 'dias'}
+      </div>
+    </div>
+
+    <div class="xp-section">
+      <div class="xp-label">
+        <span>Nível ${state.level} — Intercessor</span>
+        <span>${state.xp}/${state.level * XP_PER_LEVEL} XP</span>
+      </div>
+      <div class="xp-track">
+        <div class="xp-fill" style="width:${xpPct}%"></div>
+      </div>
     </div>
 
     <div class="progress-section">
       <div class="progress-label">
         <span>Semana ${semana} — ${tema}</span>
-        <span class="text-gold">Dia ${Math.min(diaAtual,21)} de 21</span>
+        <span class="text-gold">Dia ${Math.min(diaAtual, 21)} de 21</span>
       </div>
       <div class="progress-track">
         <div class="progress-fill" style="width:${pct}%"></div>
@@ -605,21 +935,27 @@ function renderJornada() {
         <p class="spinner-text">O Espírito está se movendo...</p>
       </div>`;
   } else if (oracaoAtual && diaVer === (state._diaOracaoAtual || 0)) {
-    oracaoArea.innerHTML = `
-      <div class="oracao-output">${oracaoAtual}</div>
-      ${!diaJaConcluido ? `<button class="btn-success" onclick="completarVigilia(${diaVer})">✅ Completei minha vigília hoje!</button>` : '<p class="text-gold text-center" style="margin-top:12px">✅ Vigília concluída!</p>'}
-    `;
+    renderOracaoOutput(oracaoArea, oracaoAtual, diaVer, diaJaConcluido);
   } else if (oracaoCache) {
-    oracaoArea.innerHTML = `
-      <div class="oracao-output">${oracaoCache}</div>
-      ${!diaJaConcluido ? `<button class="btn-success" onclick="completarVigilia(${diaVer})">✅ Completei minha vigília hoje!</button>` : '<p class="text-gold text-center" style="margin-top:12px">✅ Vigília concluída!</p>'}
-    `;
+    renderOracaoOutput(oracaoArea, oracaoCache, diaVer, diaJaConcluido);
   } else {
     oracaoArea.innerHTML = `
       <button class="btn-gold golden-pulse" style="width:100%" onclick="gerarOracaoDia(${diaVer})">
         ✨ Gerar Oração Profética
       </button>`;
   }
+}
+
+function renderOracaoOutput(container, text, dia, concluido) {
+  container.innerHTML = `
+    <div class="oracao-actions">
+      <button class="btn-icon" onclick="openImmersive(${dia}, \`${text.replace(/`/g, "'").replace(/\\/g, '\\\\')}\`)" title="Modo Imersivo">🕯️</button>
+      <button class="btn-icon" onclick="toggleTTS(\`${text.replace(/`/g, "'").replace(/\\/g, '\\\\')}\`)" title="Ouvir Oração">🔊</button>
+      <button class="share-btn" onclick="shareProgress()">📤 Compartilhar</button>
+    </div>
+    <div class="oracao-output">${text}</div>
+    ${!concluido ? `<button class="btn-success" onclick="completarVigilia(${dia})">✅ Completei minha vigília hoje!</button>` : '<p class="text-gold text-center" style="margin-top:12px">✅ Vigília concluída!</p>'}
+  `;
 }
 
 function selecionarDia(dia) {
@@ -632,12 +968,15 @@ function completarVigilia(dia) {
   if (!state.checkins.includes(dia)) {
     state.checkins.push(dia);
     state.streak++;
+    if (state.streak > (state.bestStreak || 0)) state.bestStreak = state.streak;
     state.ultimoCheckin = todayStr();
     if (dia >= state.diaAtual) {
       state.diaAtual = Math.min(dia + 1, 22);
       state.diaSelecionado = Math.min(dia + 1, 21);
     }
+    addXP(XP_REWARDS.vigilia);
     saveState();
+    checkMilestone(state.checkins.length);
   }
   oracaoAtual = '';
   renderJornada();
@@ -646,7 +985,7 @@ function completarVigilia(dia) {
 async function gerarOracaoDia(dia) {
   if (!state.apiKey) {
     document.getElementById('apiBanner').style.display = 'block';
-    alert('Configure sua chave da API Gemini primeiro!');
+    alert('Configure sua chave da API Groq primeiro!');
     return;
   }
   const semana = getSemana(dia);
@@ -659,7 +998,7 @@ async function gerarOracaoDia(dia) {
   renderJornada();
 
   try {
-    const text = await callClaude(state.apiKey, userPrompt, systemPrompt);
+    const text = await callAPI(state.apiKey, userPrompt, systemPrompt);
     oracaoAtual = text;
     state.oracoes[dia] = text;
     saveState();
@@ -672,7 +1011,7 @@ async function gerarOracaoDia(dia) {
 }
 
 // ═══════════════════════════════════════════════════
-// 3.2 — BATALHA ESPIRITUAL
+// BATALHA ESPIRITUAL
 // ═══════════════════════════════════════════════════
 let batalhaArea = '';
 let batalhaResult = '';
@@ -685,24 +1024,25 @@ function renderBatalha() {
   el.innerHTML = `
     <h2 style="margin-bottom:8px">⚔️ Batalha Espiritual</h2>
     <p class="text-muted" style="margin-bottom:20px">Oração de emergência para momentos de batalha</p>
-
     <label class="form-label">Área da batalha:</label>
     <div class="chips-container" id="batalhaChips">
       ${areas.map(a => `<button class="chip ${batalhaArea === a ? 'active' : ''}" onclick="setBatalhaArea('${a}')">${a}</button>`).join('')}
     </div>
-
     <div class="form-group">
       <label class="form-label">Descreva sua situação (opcional):</label>
       <textarea class="input-field" id="batalhaSituacao" placeholder="O que está acontecendo agora..."></textarea>
     </div>
-
     <button class="btn-gold" style="width:100%" onclick="gerarOracaoBatalha()" ${batalhaLoading ? 'disabled' : ''}>
       ${batalhaLoading ? 'Gerando...' : '⚔️ Orar em Batalha Agora'}
     </button>
-
     <div id="batalhaOutput" style="margin-top:20px">
       ${batalhaLoading ? '<div class="spinner-container"><div class="spinner"></div><p class="spinner-text">Invocando o poder do Alto...</p></div>' : ''}
-      ${batalhaResult ? `<div class="oracao-output">${batalhaResult}</div>` : ''}
+      ${batalhaResult ? `
+        <div class="oracao-actions">
+          <button class="btn-icon" onclick="toggleTTS(\`${batalhaResult.replace(/`/g, "'").replace(/\\/g, '\\\\')}\`)" title="Ouvir">🔊</button>
+        </div>
+        <div class="oracao-output">${batalhaResult}</div>
+      ` : ''}
     </div>
   `;
 }
@@ -713,7 +1053,7 @@ function setBatalhaArea(area) {
 }
 
 async function gerarOracaoBatalha() {
-  if (!state.apiKey) { alert('Configure sua API key Gemini primeiro!'); return; }
+  if (!state.apiKey) { alert('Configure sua API key Groq primeiro!'); return; }
   const situacao = document.getElementById('batalhaSituacao')?.value || '';
   const systemPrompt = 'Você é um guerreiro espiritual e intercessor ungido. Gere orações de batalha espiritual intensas em português brasileiro, com versículos reais. Tom: autoritário, cheio de poder, declarativo.';
   const userPrompt = `Gere uma oração de BATALHA ESPIRITUAL urgente para ${state.nome}.\nÁrea: ${batalhaArea || 'Geral'}\nSituação: ${situacao || 'Não especificada'}\nDenominação: ${state.denominacao}\n\nEstruture:\n📖 VERSÍCULO DE GUERRA:\n[versículo real de batalha]\n\n⚔️ ORAÇÃO DE BATALHA:\n[6-8 linhas intensas, com autoridade]\n\n🛡️ DECLARAÇÃO DE VITÓRIA:\n[3 declarações poderosas em primeira pessoa]`;
@@ -723,7 +1063,8 @@ async function gerarOracaoBatalha() {
   renderBatalha();
 
   try {
-    batalhaResult = await callClaude(state.apiKey, userPrompt, systemPrompt);
+    batalhaResult = await callAPI(state.apiKey, userPrompt, systemPrompt);
+    addXP(XP_REWARDS.batalha);
   } catch (err) {
     alert('Erro: ' + err.message);
   }
@@ -732,7 +1073,7 @@ async function gerarOracaoBatalha() {
 }
 
 // ═══════════════════════════════════════════════════
-// 3.3 — DIÁRIO DE REVELAÇÕES
+// DIÁRIO DE REVELAÇÕES
 // ═══════════════════════════════════════════════════
 function renderDiario() {
   const el = document.getElementById('section-diario');
@@ -757,7 +1098,6 @@ function renderDiario() {
 
   el.innerHTML = `
     <h2 style="margin-bottom:20px">📓 Diário de Revelações</h2>
-
     <div class="card" style="margin-bottom:24px">
       <div class="form-group">
         <label class="form-label">Título</label>
@@ -775,7 +1115,6 @@ function renderDiario() {
       </div>
       <button class="btn-gold" style="width:100%" onclick="salvarDiario()">Registrar Revelação</button>
     </div>
-
     ${listaHTML}
   `;
 }
@@ -786,6 +1125,7 @@ function salvarDiario() {
   const tipo = document.getElementById('diarioTipo').value;
   if (!titulo || !texto) { alert('Preencha título e descrição'); return; }
   state.diario.push({ id: generateId(), titulo, texto, tipo, data: todayStr() });
+  addXP(XP_REWARDS.diario);
   saveState();
   renderDiario();
 }
@@ -797,7 +1137,7 @@ function deletarDiario(id) {
 }
 
 // ═══════════════════════════════════════════════════
-// 3.4 — PEDIDOS DE ORAÇÃO
+// PEDIDOS DE ORAÇÃO
 // ═══════════════════════════════════════════════════
 function renderPedidos() {
   const el = document.getElementById('section-pedidos');
@@ -823,7 +1163,6 @@ function renderPedidos() {
   el.innerHTML = `
     <h2 style="margin-bottom:8px">🙏 Pedidos de Oração</h2>
     <p class="text-muted" style="margin-bottom:20px">Pedidos são incluídos automaticamente nas orações da Jornada</p>
-
     <div class="card" style="margin-bottom:24px">
       <div class="form-group">
         <label class="form-label">Nome da pessoa</label>
@@ -841,7 +1180,6 @@ function renderPedidos() {
       </div>
       <button class="btn-gold" style="width:100%" onclick="salvarPedido()">Adicionar Pedido</button>
     </div>
-
     ${listaHTML}
   `;
 }
@@ -852,6 +1190,7 @@ function salvarPedido() {
   const area = document.getElementById('pedidoArea').value;
   if (!nome || !descricao) { alert('Preencha nome e descrição'); return; }
   state.pedidos.push({ id: generateId(), nome, descricao, area, data: todayStr() });
+  addXP(XP_REWARDS.pedido);
   saveState();
   renderPedidos();
 }
@@ -863,7 +1202,7 @@ function deletarPedido(id) {
 }
 
 // ═══════════════════════════════════════════════════
-// 3.5 — VERSÍCULO DO DIA
+// VERSÍCULO DO DIA
 // ═══════════════════════════════════════════════════
 let versiculoResult = '';
 let versiculoLoading = false;
@@ -874,20 +1213,23 @@ function renderVersiculo() {
   el.innerHTML = `
     <h2 style="margin-bottom:8px">📖 Versículo do Dia</h2>
     <p class="text-muted" style="margin-bottom:24px">Receba uma palavra de Deus para o seu dia</p>
-
     <button class="btn-gold golden-pulse" style="width:100%;margin-bottom:24px" onclick="gerarVersiculo()" ${versiculoLoading ? 'disabled' : ''}>
       ${versiculoLoading ? 'Buscando...' : '📖 Receber Palavra do Dia'}
     </button>
-
     <div id="versiculoOutput">
       ${versiculoLoading ? '<div class="spinner-container"><div class="spinner"></div><p class="spinner-text">Buscando a Palavra...</p></div>' : ''}
-      ${versiculoResult ? `<div class="versiculo-output">${versiculoResult}</div>` : ''}
+      ${versiculoResult ? `
+        <div class="oracao-actions">
+          <button class="btn-icon" onclick="toggleTTS(\`${versiculoResult.replace(/`/g, "'").replace(/\\/g, '\\\\')}\`)" title="Ouvir">🔊</button>
+        </div>
+        <div class="versiculo-output">${versiculoResult}</div>
+      ` : ''}
     </div>
   `;
 }
 
 async function gerarVersiculo() {
-  if (!state.apiKey) { alert('Configure sua API key Gemini primeiro!'); return; }
+  if (!state.apiKey) { alert('Configure sua API key Groq primeiro!'); return; }
   const systemPrompt = 'Você é um pastor e teólogo com profundo conhecimento bíblico. Gere reflexões inspiradoras em português brasileiro usando versículos REAIS da Bíblia.';
   const userPrompt = `Gere um versículo do dia para ${state.nome}. Área de vida: ${state.area}. Nível: ${state.nivel}.\n\nEstruture:\n📖 VERSÍCULO:\n[versículo completo real com referência]\n\n💭 REFLEXÃO:\n[3-4 linhas de reflexão pessoal e aplicação]\n\n🙏 ORAÇÃO CURTA:\n[2-3 linhas de oração baseada no versículo]`;
 
@@ -896,7 +1238,8 @@ async function gerarVersiculo() {
   renderVersiculo();
 
   try {
-    versiculoResult = await callClaude(state.apiKey, userPrompt, systemPrompt);
+    versiculoResult = await callAPI(state.apiKey, userPrompt, systemPrompt);
+    addXP(XP_REWARDS.versiculo);
   } catch (err) {
     alert('Erro: ' + err.message);
   }
@@ -905,14 +1248,15 @@ async function gerarVersiculo() {
 }
 
 // ═══════════════════════════════════════════════════
-// 3.6 — MEU PROGRESSO
+// MEU PROGRESSO
 // ═══════════════════════════════════════════════════
 function renderProgresso() {
   const el = document.getElementById('section-progresso');
-  const { checkins, streak } = state;
+  const { checkins, streak, bestStreak } = state;
   const completados = checkins.length;
   const restantes = 21 - completados;
   const pct = Math.round((completados / 21) * 100);
+  const xpPct = getXPProgress();
 
   let historicoHTML = '';
   if (checkins.length > 0) {
@@ -932,18 +1276,28 @@ function renderProgresso() {
   el.innerHTML = `
     <h2 style="margin-bottom:20px">📊 Meu Progresso</h2>
 
+    <div class="xp-section" style="margin-bottom:24px">
+      <div class="xp-label">
+        <span>⭐ Nível ${state.level}</span>
+        <span>${state.xp}/${state.level * XP_PER_LEVEL} XP</span>
+      </div>
+      <div class="xp-track">
+        <div class="xp-fill" style="width:${xpPct}%"></div>
+      </div>
+    </div>
+
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-value">${completados}</div>
         <div class="stat-label">Dias Completados</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">🔥 ${streak}</div>
-        <div class="stat-label">Streak</div>
+        <div class="stat-value"><span class="streak-fire">🔥</span> ${streak}</div>
+        <div class="stat-label">Streak Atual</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${restantes}</div>
-        <div class="stat-label">Dias Restantes</div>
+        <div class="stat-value">${bestStreak || streak}</div>
+        <div class="stat-label">Melhor Streak</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">${pct}%</div>
@@ -957,12 +1311,16 @@ function renderProgresso() {
       </div>
     </div>
 
+    <div style="display:flex;gap:10px;margin-bottom:24px">
+      <button class="share-btn" onclick="shareProgress()">📤 Compartilhar Progresso</button>
+    </div>
+
     ${historicoHTML}
   `;
 }
 
 // ═══════════════════════════════════════════════════
-// 3.7 — AGENDA ESPIRITUAL
+// AGENDA ESPIRITUAL
 // ═══════════════════════════════════════════════════
 function renderAgenda() {
   const el = document.getElementById('section-agenda');
@@ -991,7 +1349,6 @@ function renderAgenda() {
 
   el.innerHTML = `
     <h2 style="margin-bottom:20px">📋 Agenda Espiritual</h2>
-
     <div class="card" style="margin-bottom:24px">
       <div class="form-group">
         <label class="form-label">Título do evento</label>
@@ -1013,7 +1370,6 @@ function renderAgenda() {
       </div>
       <button class="btn-gold" style="width:100%" onclick="salvarAgenda()">Agendar Evento</button>
     </div>
-
     ${listaHTML}
   `;
 }
@@ -1036,29 +1392,44 @@ function deletarAgenda(id) {
 }
 
 // ═══════════════════════════════════════════════════
-// CLAUDE API — chamada direta do browser
+// API CALL — GROQ com retry
 // ═══════════════════════════════════════════════════
-async function callClaude(apiKey, userPrompt, systemPrompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+async function callAPI(apiKey, userPrompt, systemPrompt, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 1200,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+        }),
+      });
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ parts: [{ text: userPrompt }] }],
-      generationConfig: { maxOutputTokens: 1200 },
-    }),
-  });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const msg = errData?.error?.message || `Erro da API: ${response.status}`;
+        if (response.status === 429 && attempt < retries) {
+          await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+          continue;
+        }
+        throw new Error(msg);
+      }
 
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    const msg = errData?.error?.message || `Erro da API: ${response.status}`;
-    throw new Error(msg);
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || 'Nenhuma resposta gerada.';
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+    }
   }
-
-  const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Nenhuma resposta gerada.';
 }
 
 // ═══════════════════════════════════════════════════
@@ -1083,8 +1454,14 @@ function todayStr() {
 document.addEventListener('DOMContentLoaded', () => {
   loadState();
   initStarCanvas();
+  initMilestoneCanvas();
+  initCommunityCounter();
 
-  // Decidir tela inicial
+  // Load TTS voices
+  if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = () => {};
+  }
+
   if (state.quizCompleto) {
     navigateTo('dashboard');
   } else {
